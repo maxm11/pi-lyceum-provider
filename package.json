@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "description": "Lyceum Cloud Serverless API provider for the Pi coding agent",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "bin": {
-    "pi-lyceum-provider": "./dist/cli.js"
+    "pi-lyceum-provider": "./dist/src/cli.js"
   },
   "files": [
     "dist",
+    "extensions",
+    "skills",
     "templates",
     "README.md",
     "LICENSE"
@@ -19,15 +21,21 @@
     "build:tests": "tsc -p tsconfig.test.json",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
     "test": "npm run build:tests && node --test dist/tests/*.test.js",
-    "setup": "node ./dist/cli.js setup",
+    "setup": "node ./dist/src/cli.js setup",
     "prepublishOnly": "npm run build && npm test"
   },
   "pi": {
     "extensions": [
-      "./dist/index.js"
+      "./dist/extensions/index.js"
+    ],
+    "skills": [
+      "./skills/lyceum"
     ]
   },
   "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi-provider",
     "pi",
     "pi-coding-agent",
     "pi-ai",

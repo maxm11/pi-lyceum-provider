@@ -37,6 +37,6 @@ jobs:
 
       - name: Test CLI execution
         run: |
-          node dist/cli.js --help
-          node dist/cli.js list
-          node dist/cli.js print-config > /dev/null
+          node dist/src/cli.js --help
+          node dist/src/cli.js list
+          node dist/src/cli.js print-config > /dev/null

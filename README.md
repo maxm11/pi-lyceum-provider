@@ -11,56 +11,54 @@ Seamlessly connect Pi to [Lyceum Cloud](https://lyceum.technology) serverless in
 
 ## Features
 
+- **Standard Pi Package**: Complies with the official [Pi Packages Specification](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md), bundleable and installable via `pi install`.
 - **OpenAI-Compatible Serverless Endpoints**: Pointed directly at `https://api.lyceum.technology/openai/v1`.
 - **Smart Routing**: Use `lyceum/router`, `lyceum/simple`, `lyceum/complex`, and `lyceum/reasoning` for automatic or tiered prompt complexity routing.
 - **Top Coding & Reasoning Models**: Curated model parameters with accurate context windows (up to 200k tokens), max token limits, thinking trace flags, and cost profiles.
 - **Dynamic Model Discovery**: Automatically fetches and registers the latest remote models from `GET /openai/v1/models` when an API key is present.
 - **Standard API Key Auth**: Resolves `LYCEUM_API_KEY` via environment variable or Pi configuration.
-- **Multiple Integration Modes**:
-  - **Pi Extension**: Load directly via `pi -e pi-lyceum-provider` or auto-load from `~/.pi/agent/extensions/`.
-  - **`models.json` Configuration**: One-command setup or copy-paste static config.
-  - **CLI Helper**: Interactive and scriptable setup, test, and listing commands.
+- **Bundled Skills & Extension**: Includes the `lyceum` skill and conventional extension hooks.
 
 ---
 
-## Quick Start
+## Installation & Setup
 
-### 1. Get a Lyceum API Key
-Generate an API key (prefixed `lk_...`) from the [Lyceum Cloud Dashboard](https://dashboard.lyceum.technology/api-keys).
+### 1. Set Your Lyceum API Key
+Get an API key (prefixed `lk_...`) from the [Lyceum Cloud Dashboard](https://dashboard.lyceum.technology/api-keys) and export it:
 
-Export your API key:
 ```bash
 export LYCEUM_API_KEY=lk_your_api_key_here
 ```
 
 ---
 
-### 2. Configure Pi Agent
+### 2. Install into Pi Agent
 
-You can configure Pi using any of the methods below:
+#### Option A: Install as a Pi Package (Recommended)
+Install directly using the Pi CLI:
 
-#### Method A: Automated CLI Setup (Recommended)
-Run the setup tool to automatically configure `~/.pi/agent/models.json`:
+```bash
+# Install from Git repository
+pi install git:github.com/maxm11/pi-lyceum-provider
+
+# Or install from npm
+pi install npm:pi-lyceum-provider
+
+# Or install to current project settings (.pi/settings.json)
+pi install -l git:github.com/maxm11/pi-lyceum-provider
+```
+
+#### Option B: Try Without Installing (Ephemeral Run)
+```bash
+pi -e git:github.com/maxm11/pi-lyceum-provider
+```
+
+#### Option C: Automated CLI Setup for `models.json`
 ```bash
 npx pi-lyceum-provider setup
 ```
-Or for local project-level configuration:
-```bash
-npx pi-lyceum-provider setup --local
-```
 
-#### Method B: As a Pi Extension
-Load the extension at startup:
-```bash
-pi -e pi-lyceum-provider
-```
-Or install it in your Pi agent extensions directory:
-```bash
-npm install -g pi-lyceum-provider
-# or link into ~/.pi/agent/extensions/
-```
-
-#### Method C: Manual `models.json`
+#### Option D: Manual `models.json`
 Add the provider block to `~/.pi/agent/models.json`:
 ```json
 {
