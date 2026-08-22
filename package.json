@@ -17,12 +17,13 @@
     "LICENSE"
   ],
   "scripts": {
+    "clean": "rm -rf dist .test-dist",
     "build": "tsc -p tsconfig.json",
     "build:tests": "tsc -p tsconfig.test.json",
     "typecheck": "tsc -p tsconfig.test.json --noEmit",
-    "test": "npm run build:tests && node --test dist/tests/*.test.js",
+    "test": "npm run build:tests && node --test .test-dist/tests/*.test.js",
     "setup": "node ./dist/src/cli.js setup",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run clean && npm run build && npm test && npm run build"
   },
   "pi": {
     "extensions": [
