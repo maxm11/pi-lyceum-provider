@@ -1,1 +1,0 @@
-# pi-lyceum-provider
