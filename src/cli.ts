@@ -176,9 +176,9 @@ async function runTest(args: CliArgs): Promise<void> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'z-ai/glm-5.2-instant',
+        model: 'deepseek/deepseek-v4-flash-0731',
         messages: [{ role: 'user', content: 'Say "Lyceum connection successful!" in 4 words.' }],
-        max_tokens: 32,
+        max_tokens: 64,
       }),
     });
 

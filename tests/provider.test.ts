@@ -5,9 +5,13 @@ import { describe, it } from 'node:test';
 import registerLyceumExtension, {
   DEFAULT_LYCEUM_MODELS,
   LYCEUM_BASE_URL,
+  LYCEUM_ROUTE_URL,
+  ROUTING_MODEL_IDS,
   createLyceumProviderConfig,
   fetchLyceumModels,
   getLyceumModelsJsonConfig,
+  resolveRoutedModel,
+  streamLyceum,
 } from '../src/index.js';
 import type { ExtensionAPI, ModelsJsonConfig, ProviderConfig } from '../src/types.js';
 
@@ -98,6 +102,8 @@ describe('Provider Configuration Generators', () => {
       thinkingFormat: 'openai',
     });
     assert.equal(config.models.length, DEFAULT_LYCEUM_MODELS.length);
+    // The provider must expose the custom routing-aware stream function.
+    assert.equal((config as unknown as { streamSimple?: unknown }).streamSimple, streamLyceum);
   });
 
   it('should allow custom apiKey and models override in ProviderConfig', () => {
@@ -166,5 +172,75 @@ describe('Extension Factory Integration', () => {
     assert.equal(cfg.baseUrl, 'https://api.lyceum.technology/openai/v1');
     assert.equal(cfg.api, 'openai-completions');
     assert.ok(cfg.models.length > 0);
+    // Extension wiring must attach the smart-routing stream implementation.
+    assert.equal((cfg as unknown as { streamSimple?: unknown }).streamSimple, streamLyceum);
+  });
+});
+
+describe('Smart Routing (lyceum/*)', () => {
+  it('should expose routing keywords and the route endpoint', () => {
+    for (const id of ['lyceum/router', 'lyceum/simple', 'lyceum/complex', 'lyceum/reasoning']) {
+      assert.ok(ROUTING_MODEL_IDS.has(id), `${id} must be a routing keyword`);
+    }
+    assert.equal(
+      LYCEUM_ROUTE_URL,
+      'https://api.lyceum.technology/api/v2/external/serverless/route',
+    );
+  });
+
+  it('should fall back to tier default when no input or key is provided', async () => {
+    assert.equal(await resolveRoutedModel('', 'lyceum/simple', 'lk_abc'), 'deepseek/deepseek-v4-flash-0731');
+    assert.equal(await resolveRoutedModel('hello', 'lyceum/complex'), 'z-ai/glm-5.2');
+    assert.equal(await resolveRoutedModel('hello', 'lyceum/reasoning', undefined), 'moonshotai/kimi-k3');
+    assert.equal(await resolveRoutedModel('hello', 'lyceum/router'), 'z-ai/glm-5.2');
+  });
+
+  it('should fall back to tier default when the route endpoint is unreachable', async () => {
+    const originalFetch = globalThis.fetch;
+    // Simulate a network failure.
+    globalThis.fetch = (async () => {
+      throw new Error('network down');
+    }) as typeof fetch;
+    try {
+      assert.equal(
+        await resolveRoutedModel('some prompt', 'lyceum/simple', 'lk_abc'),
+        'deepseek/deepseek-v4-flash-0731',
+      );
+      assert.equal(
+        await resolveRoutedModel('some prompt', 'lyceum/router', 'lk_abc'),
+        'z-ai/glm-5.2',
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('should return the model chosen by the route endpoint', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: unknown) => {
+      assert.equal(String(input), LYCEUM_ROUTE_URL);
+      return new Response(JSON.stringify({ complexity: 'medium', score: 0.42, model: 'moonshotai/kimi-k2.6' }));
+    }) as typeof fetch;
+    try {
+      const id = await resolveRoutedModel('explain the class', 'lyceum/router', 'lk_abc');
+      assert.equal(id, 'moonshotai/kimi-k2.6');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('should fall back when the route response omits a model', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      return new Response(JSON.stringify({ complexity: 'simple', score: 0.1 }));
+    }) as typeof fetch;
+    try {
+      assert.equal(
+        await resolveRoutedModel('hello world', 'lyceum/simple', 'lk_abc'),
+        'deepseek/deepseek-v4-flash-0731',
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

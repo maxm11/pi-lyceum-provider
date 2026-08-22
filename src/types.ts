@@ -55,6 +55,12 @@ export interface ProviderConfig {
   compat?: ProviderCompatConfig;
   models: ModelDefinition[];
   modelOverrides?: Record<string, Partial<ModelDefinition>>;
+  /**
+   * Custom streaming implementation for providers whose chat surface is not
+   * fully OpenAI-compatible. When present, pi invokes this for every model on
+   * the provider instead of the built-in API implementation.
+   */
+  streamSimple?: unknown;
   [key: string]: unknown;
 }
 
