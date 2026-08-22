@@ -56,20 +56,22 @@ export async function fetchLyceumModels(
       modelMap.set(model.id.toLowerCase(), { ...model });
     }
 
-    // Merge or add discovered models
+    // Merge or add discovered models.
+    // The /models endpoint only exposes ids (no context/pricing/reasoning), so
+    // any model not already curated gets a conservative default. Curated models
+    // keep their authoritative metadata from models.ts.
+    const REMOTE_FALLBACK: Omit<ModelDefinition, 'id'> = {
+      reasoning: false,
+      input: ['text'],
+      contextWindow: 128000,
+      maxTokens: 16384,
+      cost: { input: 1.75, output: 3.5, cacheRead: 0.44, cacheWrite: 1.75 },
+    };
     for (const item of remoteList) {
       const id = item.id;
       const keyId = id.toLowerCase();
       if (!modelMap.has(keyId)) {
-        modelMap.set(keyId, {
-          id,
-          name: item.name || id,
-          reasoning: false,
-          input: ['text'],
-          contextWindow: 128000,
-          maxTokens: 16384,
-          cost: { input: 1.0, output: 3.0, cacheRead: 0.2, cacheWrite: 1.0 },
-        });
+        modelMap.set(keyId, { id, ...REMOTE_FALLBACK, name: item.name || id });
       }
     }
 
@@ -98,9 +100,12 @@ export function createLyceumProviderConfig(options?: {
     apiKey,
     compat: {
       supportsDeveloperRole: false,
-      supportsReasoningEffort: true,
+      // Lyceum reasoning is on/off per model (see models.ts), toggled via
+      // chat_template_kwargs, not a reliably graded reasoning_effort dial.
+      supportsReasoningEffort: false,
       maxTokensField: 'max_tokens',
       requiresToolResultName: true,
+      thinkingFormat: 'openai',
     },
     models,
   };

@@ -35,17 +35,50 @@ describe('Lyceum Provider Metadata', () => {
     assert.ok(ids.includes('lyceum/reasoning'));
     assert.ok(ids.includes('moonshotai/kimi-k2.7-code'));
     assert.ok(ids.includes('z-ai/glm-5.2'));
-    assert.ok(ids.includes('z-ai/glm-5.2-instant'));
+    assert.ok(ids.includes('moonshotai/kimi-k3'));
     assert.ok(ids.includes('deepseek/deepseek-v4-pro'));
     assert.ok(ids.includes('deepseek/deepseek-v4-flash-0731'));
     assert.ok(ids.includes('minimax/minimax-m3'));
+    // z-ai/glm-5.2-instant is not actually deployed on the serverless API,
+    // so it must NOT be advertised as a resolvable model.
+    assert.ok(!ids.includes('z-ai/glm-5.2-instant'));
   });
 
-  it('should configure Kimi K2.7 code with 200k context window', () => {
+  it('should configure Kimi K2.7 code with its real 256K context window', () => {
     const kimi = DEFAULT_LYCEUM_MODELS.find((m) => m.id === 'moonshotai/kimi-k2.7-code');
     assert.ok(kimi);
-    assert.equal(kimi.contextWindow, 200000);
+    assert.equal(kimi.contextWindow, 256000);
     assert.equal(kimi.reasoning, true);
+  });
+
+  it('should reflect accurate context windows from the Lyceum catalogue', () => {
+    const byId = (id: string) => DEFAULT_LYCEUM_MODELS.find((m) => m.id === id);
+    // 1M-token models
+    assert.equal(byId('moonshotai/kimi-k3')?.contextWindow, 1000000);
+    assert.equal(byId('deepseek/deepseek-v4-pro')?.contextWindow, 1000000);
+    assert.equal(byId('deepseek/deepseek-v4-flash-0731')?.contextWindow, 1000000);
+    assert.equal(byId('z-ai/glm-5.2')?.contextWindow, 1000000);
+    assert.equal(byId('minimax/minimax-m3')?.contextWindow, 1000000);
+    // 256K-token models
+    assert.equal(byId('moonshotai/kimi-k2.6')?.contextWindow, 256000);
+    assert.equal(byId('moonshotai/kimi-k2.5')?.contextWindow, 256000);
+    assert.equal(byId('qwen/qwen3.8-2.4t-a95b')?.contextWindow, 256000);
+    assert.equal(byId('qwen/qwen3.5-9b')?.contextWindow, 256000);
+    // 200K / 128K models
+    assert.equal(byId('z-ai/glm-5.1')?.contextWindow, 200000);
+    assert.equal(byId('z-ai/glm-5')?.contextWindow, 128000);
+    assert.equal(byId('deepseek/deepseek-v3.2')?.contextWindow, 128000);
+  });
+
+  it('should reflect accurate reasoning defaults per Lyceum serverless docs', () => {
+    const byId = (id: string) => DEFAULT_LYCEUM_MODELS.find((m) => m.id === id);
+    // DeepSeek V4 models reason OFF by default
+    assert.equal(byId('deepseek/deepseek-v4-pro')?.reasoning, false);
+    assert.equal(byId('deepseek/deepseek-v4-flash-0731')?.reasoning, false);
+    // Kimi / GLM-5.2 / MiniMax / Qwen reasoning models are ON
+    assert.equal(byId('moonshotai/kimi-k3')?.reasoning, true);
+    assert.equal(byId('z-ai/glm-5.2')?.reasoning, true);
+    assert.equal(byId('minimax/minimax-m3')?.reasoning, true);
   });
 });
 
@@ -59,9 +92,10 @@ describe('Provider Configuration Generators', () => {
     assert.equal(config.apiKey, '$LYCEUM_API_KEY');
     assert.deepEqual(config.compat, {
       supportsDeveloperRole: false,
-      supportsReasoningEffort: true,
+      supportsReasoningEffort: false,
       maxTokensField: 'max_tokens',
       requiresToolResultName: true,
+      thinkingFormat: 'openai',
     });
     assert.equal(config.models.length, DEFAULT_LYCEUM_MODELS.length);
   });
