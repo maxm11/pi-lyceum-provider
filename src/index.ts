@@ -1,5 +1,4 @@
 import { DEFAULT_LYCEUM_MODELS, LYCEUM_BASE_URL } from './models.js';
-import { streamLyceum } from './routing.js';
 import type {
   ExtensionAPI,
   ModelDefinition,
@@ -8,7 +7,6 @@ import type {
 } from './types.js';
 
 export * from './models.js';
-export * from './routing.js';
 export * from './types.js';
 
 /**
@@ -109,10 +107,6 @@ export function createLyceumProviderConfig(options?: {
       requiresToolResultName: true,
       thinkingFormat: 'openai',
     },
-    // Custom stream that resolves Smart Routing keywords (lyceum/router, etc.)
-    // via `POST /api/v2/external/serverless/route` and delegates concrete
-    // models to the OpenAI-compatible surface.
-    streamSimple: streamLyceum,
     models,
   };
 }

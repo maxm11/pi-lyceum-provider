@@ -15,31 +15,16 @@ Use this skill when interacting with Lyceum Cloud serverless inference APIs, cho
 
 ## Recommended Models
 
-- **`lyceum/router`**: Recommended default for general coding and tasks. Classifies prompt complexity and routes automatically to the optimal model, resolved via Lyceum's routing protocol (`POST /api/v2/external/serverless/route`). Requires the bundled extension.
-- **`moonshotai/kimi-k2.7-code`**: Specialized for agentic coding, deep tool loops, large codebases (256k context window).
-- **`z-ai/glm-5.2`**: Strong general reasoning with visible step-by-step thinking traces.
-- **`deepseek/deepseek-v4-flash-0731`**: Low-latency autocomplete and small edits.
+- **`moonshotai/kimi-k2.7-code`**: Specialized for agentic coding, deep tool loops, large codebases (256k context window). Reasoning enabled.
+- **`z-ai/glm-5.3`**: Flagship general reasoning model with strong math, coding, and bilingual capabilities (1M context window). Reasoning enabled.
+- **`deepseek/deepseek-v4-flash-0731`**: Low-latency autocomplete, fast edits, and high-throughput tool use (1M context window).
+- **`qwen/qwen3.8-flash-next`**: High-speed reasoning model with fast generation and low latency (256k context window).
 
 ## Model Selection in Pi
 
 Switch models on the fly in Pi:
 ```
 /model lyceum/moonshotai/kimi-k2.7-code
-/model lyceum/lyceum/router
-/model lyceum/z-ai/glm-5.2
+/model lyceum/z-ai/glm-5.3
+/model lyceum/deepseek/deepseek-v4-flash-0731
 ```
-
-## Smart Routing Protocol
-
-Routing keywords (`lyceum/router`, `lyceum/simple`, `lyceum/complex`, `lyceum/reasoning`) are **not** accepted by the OpenAI-compatible `/chat/completions` surface — submitting them there returns `model not found`. The bundled extension resolves them through Lyceum's dedicated routing endpoint before sending the actual completion:
-
-```text
-POST https://api.lyceum.technology/api/v2/external/serverless/route
-{
-  "input": "<latest user prompt text>"
-}
-
-→ { "complexity": string, "score": number, "model": string }
-```
-
-If the routing endpoint is unavailable, the extension falls back to a fixed concrete model per tier (`simple` → DeepSeek V4 Flash, `complex`/`router` → GLM-5.2, `reasoning` → Kimi K3). Routing requires the bundled extension; a raw `models.json` entry alone cannot drive it.
