@@ -5,7 +5,7 @@
 
 Official Lyceum Cloud Serverless API provider for the [Pi Coding Agent](https://pi.dev) (`@earendil-works/pi-coding-agent` / `@earendil-works/pi-ai`).
 
-Seamlessly connect Pi to [Lyceum Cloud](https://lyceum.technology) serverless inference endpoints and **Smart Routing** using standard API keys (`lk_...`).
+Seamlessly connect Pi to [Lyceum Cloud](https://lyceum.technology) serverless inference endpoints using standard API keys (`lk_...`).
 
 ---
 
@@ -13,8 +13,7 @@ Seamlessly connect Pi to [Lyceum Cloud](https://lyceum.technology) serverless in
 
 - **Standard Pi Package**: Complies with the official [Pi Packages Specification](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md), bundleable and installable via `pi install`.
 - **OpenAI-Compatible Serverless Endpoints**: Pointed directly at `https://api.lyceum.technology/openai/v1`.
-- **Smart Routing**: Use `lyceum/router`, `lyceum/simple`, `lyceum/complex`, and `lyceum/reasoning` for automatic or tiered prompt complexity routing. Routing keywords are resolved through Lyceum's dedicated routing protocol (`POST /api/v2/external/serverless/route`), which the bundled extension wires into pi automatically.
-- **Top Coding & Reasoning Models**: Curated model parameters with accurate context windows (up to 200k tokens), max token limits, thinking trace flags, and cost profiles.
+- **Top Coding & Reasoning Models**: Curated model parameters with accurate context windows (up to 1M tokens), max token limits, thinking trace flags, and cost profiles.
 - **Dynamic Model Discovery**: Automatically fetches and registers the latest remote models from `GET /openai/v1/models` when an API key is present.
 - **Standard API Key Auth**: Resolves `LYCEUM_API_KEY` via environment variable or Pi configuration.
 - **Bundled Skills & Extension**: Includes the `lyceum` skill and conventional extension hooks.
@@ -59,9 +58,8 @@ npx pi-lyceum-provider setup
 ```
 
 #### Option D: Manual `models.json`
-Add the provider block to `~/.pi/agent/models.json`. Concrete serverless models work through the OpenAI-compatible surface directly:
+Add the provider block to `~/.pi/agent/models.json`:
 
-> **⚠️ Smart Routing keywords (`lyceum/router`, `lyceum/simple`, `lyceum/complex`, `lyceum/reasoning`) require the extension.** They are resolved through Lyceum's separate routing protocol (`POST /api/v2/external/serverless/route`) rather than `/chat/completions`. A bare `models.json` entry has no way to carry that custom request logic, so always use the bundled extension (Options A, B, or C) when you want routing. The extension registers the routing-aware stream automatically.
 ```json
 {
   "providers": {
@@ -72,38 +70,39 @@ Add the provider block to `~/.pi/agent/models.json`. Concrete serverless models 
       "apiKey": "$LYCEUM_API_KEY",
       "compat": {
         "supportsDeveloperRole": false,
-        "supportsReasoningEffort": true,
+        "supportsReasoningEffort": false,
         "maxTokensField": "max_tokens",
-        "requiresToolResultName": true
+        "requiresToolResultName": true,
+        "thinkingFormat": "openai"
       },
       "models": [
         {
           "id": "moonshotai/kimi-k2.7-code",
           "name": "Kimi K2.7 Code",
           "reasoning": true,
-          "contextWindow": 200000,
+          "contextWindow": 256000,
           "maxTokens": 65536
         },
         {
-          "id": "z-ai/glm-5.2",
-          "name": "GLM 5.2 (Reasoning)",
+          "id": "z-ai/glm-5.3",
+          "name": "GLM-5.3",
           "reasoning": true,
-          "contextWindow": 128000,
-          "maxTokens": 16384
+          "contextWindow": 1000000,
+          "maxTokens": 65536
         },
         {
           "id": "deepseek/deepseek-v4-pro",
           "name": "DeepSeek V4 Pro",
-          "reasoning": true,
-          "contextWindow": 128000,
-          "maxTokens": 16384
+          "reasoning": false,
+          "contextWindow": 1000000,
+          "maxTokens": 65536
         },
         {
           "id": "deepseek/deepseek-v4-flash-0731",
           "name": "DeepSeek V4 Flash",
           "reasoning": false,
-          "contextWindow": 128000,
-          "maxTokens": 16384
+          "contextWindow": 1000000,
+          "maxTokens": 65536
         }
       ]
     }
@@ -121,58 +120,54 @@ Run Pi with any Lyceum model:
 # Agentic coding with Kimi K2.7 Code
 pi --model lyceum/moonshotai/kimi-k2.7-code
 
-# Smart Router (automatically routes prompts based on task complexity)
-pi --model lyceum/lyceum/router
+# Flagship general reasoning with GLM 5.3
+pi --model lyceum/z-ai/glm-5.3
 
-# General reasoning with GLM 5.2
-pi --model lyceum/z-ai/glm-5.2
+# Fast, high-throughput edits with DeepSeek V4 Flash
+pi --model lyceum/deepseek/deepseek-v4-flash-0731
 ```
 
 Or switch models interactively inside Pi by typing `/model` and searching for `lyceum`.
 
 ---
 
-## How Smart Routing Works
-
-Lyceum's routing keywords are **not** accepted by the OpenAI-compatible `/chat/completions` endpoint — sending `lyceum/router` there returns `model not found`. Instead they are resolved through Lyceum's dedicated routing protocol:
-
-```text
-POST https://api.lyceum.technology/api/v2/external/serverless/route
-{
-  "input": "<latest user prompt text>"
-}
-
-→ { "complexity": string, "score": number, "model": string }
-```
-
-The endpoint classifies the prompt and returns the concrete model that should serve it. The bundled extension then sends the actual chat completion to `/chat/completions` using that resolved model, so streaming, tool calling, and usage accounting all work normally.
-
-Resolution details:
-
-- `lyceum/router` asks the router to pick the optimal model for each prompt.
-- `lyceum/simple`, `lyceum/complex`, and `lyceum/reasoning` map to their fixed tier's representative model.
-- If the routing endpoint is unreachable or returns no model, the extension **falls back to a fixed concrete model per tier** (`simple` → DeepSeek V4 Flash, `complex`/`router` → GLM-5.2, `reasoning` → Kimi K3) so your session keeps working.
-- The resolved model is cached per session and API key, so a multi-turn agentic session stays on one concrete model instead of drifting.
-
-Requires the bundled extension (see installation Options A, B, or C).
-
 ## Available Models
 
 | Model ID | Context Window | Reasoning Trace | Recommended For |
 |---|---|---|---|
-| `lyceum/router` | — | Automatic | Automatic routing based on prompt complexity |
-| `lyceum/simple` | — | No | Fast, cost-efficient model for simple tasks |
-| `lyceum/complex` | — | Yes | High-capability model for deep tasks (routing via `/route`) |
-| `lyceum/reasoning` | — | Yes | Dedicated reasoning tier (routing via `/route`) |
 | `moonshotai/kimi-k2.7-code` | 256k | Yes | Agentic coding & tool execution loops |
-| `z-ai/glm-5.2` | 1M | Yes | Strong general reasoning & math |
+| `z-ai/glm-5.3` | 1M | Yes | Flagship reasoning, coding, & mathematics |
+| `z-ai/glm-5.3-flash` | 1M | Yes | Fast low-latency reasoning & high-throughput agents |
+| `z-ai/glm-5.2` | 1M | Yes | Strong bilingual reasoning & tool use |
+| `z-ai/glm-5.1` | 200k | Yes | Flagship reasoning with advanced tool use |
 | `moonshotai/kimi-k3` | 1M | Yes | Long-context document & codebase analysis |
-| `moonshotai/kimi-k2.6` | 256k | Yes | Balanced deep reasoning |
-| `deepseek/deepseek-v4-pro` | 1M | No* | Low-cost high reasoning performance |
+| `moonshotai/kimi-k2.6` | 256k | Yes | Native multimodal reasoning & tool use |
+| `deepseek/deepseek-v4-pro` | 1M | No* | Advanced coding & long-horizon workflows |
 | `deepseek/deepseek-v4-flash-0731` | 1M | No | Ultra-fast edits and autocomplete |
-| `minimax/minimax-m3` | 1M | Yes | High throughput and cost efficiency |
-| `qwen/qwen3.5-9b` | 256k | Yes | Lightweight interactive turns |
-| `qwen/qwen3.8-2.4t-a95b` | 256k | Yes | Large MoE reasoning model |
+| `minimax/minimax-m3` | 1M | Yes | High throughput 1M-context reasoning |
+| `minimax/minimax-m2.5` | 1M | No | Balanced document & conversation tasks |
+| `qwen/qwen3.8-2.4t-a95b` | 256k | Yes | Flagship MoE reasoning model |
+| `qwen/qwen3.8-flash-next` | 256k | Yes | High-speed reasoning with low latency |
+| `qwen/qwen3.8-27b` | 256k | Yes | Balanced dense model with reasoning & tools |
+| `qwen/qwen3.5-397b-a17b` | 256k | No | Large-scale MoE instruction following |
+| `qwen/qwen3.5-9b` | 256k | Yes | Compact model for fast reasoning |
+| `qwen/qwen3-235b-a22b-instruct-2507` | 256k | No | High-quality instruction following & coding |
+| `qwen/qwen3-30b-a3b-instruct-2507` | 256k | No | Efficient MoE instruction following |
+| `qwen/qwen3-next-80b-a3b-thinking` | 256k | Yes | Specialized thinking variant |
+| `qwen/qwen3-32b` | 128k | No | Compact balanced model |
+| `qwen/qwen2.5-vl-72b-instruct` | 128k | No | Multimodal vision-language model |
+| `openai/gpt-oss-120b` | 128k | No | Open-weight 120B model |
+| `meta-llama/llama-3.3-70b-instruct` | 128k | No | Meta flagship 70B instruction model |
+| `google/gemma-3-27b-it` | 128k | No | Multimodal instruction model |
+| `nousresearch/hermes-4-405b` | 128k | No | High-capacity open instruction model |
+| `nousresearch/hermes-4-70b` | 128k | No | Efficient conversational model |
+| `openbmb/minicpm-v-4_5` | 128k | No | Multimodal vision-language model |
+| `nvidia/cosmos3-super-reasoner` | 128k | Yes | Multi-step super reasoning |
+| `nvidia/nemotron-3-nano-omni` | 128k | No | Omni-modal agentic model |
+| `nvidia/nvidia-nemotron-3-nano-30b-a3b` | 128k | No | Ultra-efficient MoE reasoning |
+| `nvidia/nemotron-3-super-120b-a12b` | 128k | No | High-capacity enterprise reasoning |
+| `nvidia/nemotron-3-ultra-550b-a55b` | 128k | No | Massive frontier reasoning model |
+| `nvidia/llama-3_1-nemotron-ultra-253b-v1` | 128k | No | Tuned for reasoning & code synthesis |
 
 \* `deepseek/deepseek-v4-pro` reasons off by default; enable with `chat_template_kwargs: {"thinking": true}`.
 
@@ -210,11 +205,8 @@ import registerLyceumExtension, {
   createLyceumProviderConfig,
   fetchLyceumModels,
   getLyceumModelsJsonConfig,
-  streamLyceum,
-  resolveRoutedModel,
-  LYCEUM_ROUTE_URL,
-  ROUTING_MODEL_IDS,
   DEFAULT_LYCEUM_MODELS,
+  LYCEUM_BASE_URL,
 } from 'pi-lyceum-provider';
 ```
 
@@ -241,3 +233,4 @@ npm run build
 ## License
 
 [MIT](LICENSE)
+

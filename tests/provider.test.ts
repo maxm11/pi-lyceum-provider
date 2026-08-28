@@ -5,13 +5,9 @@ import { describe, it } from 'node:test';
 import registerLyceumExtension, {
   DEFAULT_LYCEUM_MODELS,
   LYCEUM_BASE_URL,
-  LYCEUM_ROUTE_URL,
-  ROUTING_MODEL_IDS,
   createLyceumProviderConfig,
   fetchLyceumModels,
   getLyceumModelsJsonConfig,
-  resolveRoutedModel,
-  streamLyceum,
 } from '../src/index.js';
 import type { ExtensionAPI, ModelsJsonConfig, ProviderConfig } from '../src/types.js';
 
@@ -21,7 +17,7 @@ describe('Lyceum Provider Metadata', () => {
   });
 
   it('should include curated models with valid attributes', () => {
-    assert.ok(DEFAULT_LYCEUM_MODELS.length >= 10);
+    assert.ok(DEFAULT_LYCEUM_MODELS.length >= 30);
 
     for (const model of DEFAULT_LYCEUM_MODELS) {
       assert.ok(model.id, 'Model must have an ID');
@@ -31,20 +27,38 @@ describe('Lyceum Provider Metadata', () => {
     }
   });
 
-  it('should include key smart routing and serverless models', () => {
+  it('should not include smart routing keywords in DEFAULT_LYCEUM_MODELS', () => {
     const ids = DEFAULT_LYCEUM_MODELS.map((m) => m.id);
-    assert.ok(ids.includes('lyceum/router'));
-    assert.ok(ids.includes('lyceum/simple'));
-    assert.ok(ids.includes('lyceum/complex'));
-    assert.ok(ids.includes('lyceum/reasoning'));
-    assert.ok(ids.includes('moonshotai/kimi-k2.7-code'));
+    assert.ok(!ids.includes('lyceum/router'));
+    assert.ok(!ids.includes('lyceum/simple'));
+    assert.ok(!ids.includes('lyceum/complex'));
+    assert.ok(!ids.includes('lyceum/reasoning'));
+  });
+
+  it('should include key deployed serverless models', () => {
+    const ids = DEFAULT_LYCEUM_MODELS.map((m) => m.id);
+    assert.ok(ids.includes('z-ai/glm-5.3'));
+    assert.ok(ids.includes('z-ai/glm-5.3-flash'));
     assert.ok(ids.includes('z-ai/glm-5.2'));
+    assert.ok(ids.includes('z-ai/glm-5.1'));
+    assert.ok(ids.includes('moonshotai/kimi-k2.7-code'));
     assert.ok(ids.includes('moonshotai/kimi-k3'));
+    assert.ok(ids.includes('moonshotai/kimi-k2.6'));
     assert.ok(ids.includes('deepseek/deepseek-v4-pro'));
     assert.ok(ids.includes('deepseek/deepseek-v4-flash-0731'));
     assert.ok(ids.includes('minimax/minimax-m3'));
-    // z-ai/glm-5.2-instant is not actually deployed on the serverless API,
-    // so it must NOT be advertised as a resolvable model.
+    assert.ok(ids.includes('minimax/minimax-m2.5'));
+    assert.ok(ids.includes('qwen/qwen3.8-2.4t-a95b'));
+    assert.ok(ids.includes('qwen/qwen3.8-flash-next'));
+    assert.ok(ids.includes('qwen/qwen3.8-27b'));
+    assert.ok(ids.includes('qwen/qwen3.5-397b-a17b'));
+    assert.ok(ids.includes('qwen/qwen3.5-9b'));
+    assert.ok(ids.includes('qwen/qwen3-235b-a22b-instruct-2507'));
+    assert.ok(ids.includes('openai/gpt-oss-120b'));
+    assert.ok(ids.includes('meta-llama/llama-3.3-70b-instruct'));
+    assert.ok(ids.includes('google/gemma-3-27b-it'));
+    assert.ok(ids.includes('nousresearch/hermes-4-405b'));
+    assert.ok(ids.includes('nvidia/cosmos3-super-reasoner'));
     assert.ok(!ids.includes('z-ai/glm-5.2-instant'));
   });
 
@@ -58,20 +72,30 @@ describe('Lyceum Provider Metadata', () => {
   it('should reflect accurate context windows from the Lyceum catalogue', () => {
     const byId = (id: string) => DEFAULT_LYCEUM_MODELS.find((m) => m.id === id);
     // 1M-token models
+    assert.equal(byId('z-ai/glm-5.3')?.contextWindow, 1000000);
+    assert.equal(byId('z-ai/glm-5.3-flash')?.contextWindow, 1000000);
+    assert.equal(byId('z-ai/glm-5.2')?.contextWindow, 1000000);
     assert.equal(byId('moonshotai/kimi-k3')?.contextWindow, 1000000);
     assert.equal(byId('deepseek/deepseek-v4-pro')?.contextWindow, 1000000);
     assert.equal(byId('deepseek/deepseek-v4-flash-0731')?.contextWindow, 1000000);
-    assert.equal(byId('z-ai/glm-5.2')?.contextWindow, 1000000);
     assert.equal(byId('minimax/minimax-m3')?.contextWindow, 1000000);
+    assert.equal(byId('minimax/minimax-m2.5')?.contextWindow, 1000000);
     // 256K-token models
+    assert.equal(byId('moonshotai/kimi-k2.7-code')?.contextWindow, 256000);
     assert.equal(byId('moonshotai/kimi-k2.6')?.contextWindow, 256000);
-    assert.equal(byId('moonshotai/kimi-k2.5')?.contextWindow, 256000);
     assert.equal(byId('qwen/qwen3.8-2.4t-a95b')?.contextWindow, 256000);
+    assert.equal(byId('qwen/qwen3.8-flash-next')?.contextWindow, 256000);
+    assert.equal(byId('qwen/qwen3.8-27b')?.contextWindow, 256000);
+    assert.equal(byId('qwen/qwen3.5-397b-a17b')?.contextWindow, 256000);
     assert.equal(byId('qwen/qwen3.5-9b')?.contextWindow, 256000);
+    assert.equal(byId('qwen/qwen3-235b-a22b-instruct-2507')?.contextWindow, 256000);
     // 200K / 128K models
     assert.equal(byId('z-ai/glm-5.1')?.contextWindow, 200000);
-    assert.equal(byId('z-ai/glm-5')?.contextWindow, 128000);
-    assert.equal(byId('deepseek/deepseek-v3.2')?.contextWindow, 128000);
+    assert.equal(byId('openai/gpt-oss-120b')?.contextWindow, 128000);
+    assert.equal(byId('meta-llama/llama-3.3-70b-instruct')?.contextWindow, 128000);
+    assert.equal(byId('google/gemma-3-27b-it')?.contextWindow, 128000);
+    assert.equal(byId('nousresearch/hermes-4-405b')?.contextWindow, 128000);
+    assert.equal(byId('nvidia/cosmos3-super-reasoner')?.contextWindow, 128000);
   });
 
   it('should reflect accurate reasoning defaults per Lyceum serverless docs', () => {
@@ -79,10 +103,14 @@ describe('Lyceum Provider Metadata', () => {
     // DeepSeek V4 models reason OFF by default
     assert.equal(byId('deepseek/deepseek-v4-pro')?.reasoning, false);
     assert.equal(byId('deepseek/deepseek-v4-flash-0731')?.reasoning, false);
-    // Kimi / GLM-5.2 / MiniMax / Qwen reasoning models are ON
-    assert.equal(byId('moonshotai/kimi-k3')?.reasoning, true);
+    // Kimi / GLM / MiniMax / Qwen reasoning models are ON
+    assert.equal(byId('z-ai/glm-5.3')?.reasoning, true);
+    assert.equal(byId('z-ai/glm-5.3-flash')?.reasoning, true);
     assert.equal(byId('z-ai/glm-5.2')?.reasoning, true);
+    assert.equal(byId('moonshotai/kimi-k3')?.reasoning, true);
+    assert.equal(byId('moonshotai/kimi-k2.7-code')?.reasoning, true);
     assert.equal(byId('minimax/minimax-m3')?.reasoning, true);
+    assert.equal(byId('qwen/qwen3.8-flash-next')?.reasoning, true);
   });
 });
 
@@ -102,8 +130,7 @@ describe('Provider Configuration Generators', () => {
       thinkingFormat: 'openai',
     });
     assert.equal(config.models.length, DEFAULT_LYCEUM_MODELS.length);
-    // The provider must expose the custom routing-aware stream function.
-    assert.equal((config as unknown as { streamSimple?: unknown }).streamSimple, streamLyceum);
+    assert.equal(config.streamSimple, undefined);
   });
 
   it('should allow custom apiKey and models override in ProviderConfig', () => {
@@ -136,6 +163,7 @@ describe('Provider Configuration Generators', () => {
     assert.ok(parsed.providers.lyceum);
     assert.equal(parsed.providers.lyceum.baseUrl, 'https://api.lyceum.technology/openai/v1');
     assert.equal(parsed.providers.lyceum.apiKey, '$LYCEUM_API_KEY');
+    assert.equal(parsed.providers.lyceum.models.length, DEFAULT_LYCEUM_MODELS.length);
   });
 });
 
@@ -172,75 +200,7 @@ describe('Extension Factory Integration', () => {
     assert.equal(cfg.baseUrl, 'https://api.lyceum.technology/openai/v1');
     assert.equal(cfg.api, 'openai-completions');
     assert.ok(cfg.models.length > 0);
-    // Extension wiring must attach the smart-routing stream implementation.
-    assert.equal((cfg as unknown as { streamSimple?: unknown }).streamSimple, streamLyceum);
+    assert.equal(cfg.streamSimple, undefined);
   });
 });
 
-describe('Smart Routing (lyceum/*)', () => {
-  it('should expose routing keywords and the route endpoint', () => {
-    for (const id of ['lyceum/router', 'lyceum/simple', 'lyceum/complex', 'lyceum/reasoning']) {
-      assert.ok(ROUTING_MODEL_IDS.has(id), `${id} must be a routing keyword`);
-    }
-    assert.equal(
-      LYCEUM_ROUTE_URL,
-      'https://api.lyceum.technology/api/v2/external/serverless/route',
-    );
-  });
-
-  it('should fall back to tier default when no input or key is provided', async () => {
-    assert.equal(await resolveRoutedModel('', 'lyceum/simple', 'lk_abc'), 'deepseek/deepseek-v4-flash-0731');
-    assert.equal(await resolveRoutedModel('hello', 'lyceum/complex'), 'z-ai/glm-5.2');
-    assert.equal(await resolveRoutedModel('hello', 'lyceum/reasoning', undefined), 'moonshotai/kimi-k3');
-    assert.equal(await resolveRoutedModel('hello', 'lyceum/router'), 'z-ai/glm-5.2');
-  });
-
-  it('should fall back to tier default when the route endpoint is unreachable', async () => {
-    const originalFetch = globalThis.fetch;
-    // Simulate a network failure.
-    globalThis.fetch = (async () => {
-      throw new Error('network down');
-    }) as typeof fetch;
-    try {
-      assert.equal(
-        await resolveRoutedModel('some prompt', 'lyceum/simple', 'lk_abc'),
-        'deepseek/deepseek-v4-flash-0731',
-      );
-      assert.equal(
-        await resolveRoutedModel('some prompt', 'lyceum/router', 'lk_abc'),
-        'z-ai/glm-5.2',
-      );
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it('should return the model chosen by the route endpoint', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async (input: unknown) => {
-      assert.equal(String(input), LYCEUM_ROUTE_URL);
-      return new Response(JSON.stringify({ complexity: 'medium', score: 0.42, model: 'moonshotai/kimi-k2.6' }));
-    }) as typeof fetch;
-    try {
-      const id = await resolveRoutedModel('explain the class', 'lyceum/router', 'lk_abc');
-      assert.equal(id, 'moonshotai/kimi-k2.6');
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  it('should fall back when the route response omits a model', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async () => {
-      return new Response(JSON.stringify({ complexity: 'simple', score: 0.1 }));
-    }) as typeof fetch;
-    try {
-      assert.equal(
-        await resolveRoutedModel('hello world', 'lyceum/simple', 'lk_abc'),
-        'deepseek/deepseek-v4-flash-0731',
-      );
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-});

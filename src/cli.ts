@@ -138,7 +138,7 @@ async function runSetup(args: CliArgs): Promise<void> {
   console.log(`\nTo start using Lyceum with Pi:`);
   console.log(`  1. export LYCEUM_API_KEY=lk_your_api_key`);
   console.log(`  2. pi --model lyceum/moonshotai/kimi-k2.7-code`);
-  console.log(`  or use Smart Router: pi --model lyceum/lyceum/router\n`);
+  console.log(`  or: pi --model lyceum/z-ai/glm-5.3\n`);
 }
 
 function runList(): void {

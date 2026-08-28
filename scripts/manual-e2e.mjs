@@ -1,73 +1,48 @@
-// End-to-end smoke test for the Lyceum routing stream, run manually.
-// Loads the real API key from ~/.pi/agent/auth.json and exercises streamLyceum
-// against the live Lyceum API for both a routing keyword and a concrete model.
+// End-to-end smoke test for the Lyceum provider, run manually.
+// Loads the real API key from ~/.pi/agent/auth.json and exercises
+// chat completions against the live Lyceum API.
 //
-// Usage:   npm run build && node scripts/manual-e2e.mjs
+// Usage:   node scripts/manual-e2e.mjs
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { streamLyceum } from '../.test-dist/src/routing.js';
 
 const auth = JSON.parse(readFileSync(join(homedir(), '.pi', 'agent', 'auth.json'), 'utf8'));
-const apiKey = auth.lyceum?.key;
+const apiKey = auth.lyceum?.key || process.env.LYCEUM_API_KEY;
 if (!apiKey) {
-  console.error('No lyceum key found in auth.json');
+  console.error('No lyceum key found in auth.json or LYCEUM_API_KEY');
   process.exit(1);
 }
 
-function makeModel(id) {
-  return {
-    id,
-    name: id,
-    api: 'openai-completions',
-    provider: 'lyceum',
-    baseUrl: 'https://api.lyceum.technology/openai/v1',
-    reasoning: id === 'z-ai/glm-5.2' || id === 'moonshotai/kimi-k3',
-    input: ['text'],
-    cost: { input: 1.75, output: 3.5, cacheRead: 0.44, cacheWrite: 1.75 },
-    contextWindow: 1000000,
-    maxTokens: 65536,
-  };
-}
-
-function makeContext(text) {
-  return {
-    messages: [{ role: 'user', content: text, timestamp: Date.now() }],
-  };
-}
-
-async function run(id, text) {
-  return new Promise((resolve) => {
-    const model = makeModel(id);
-    const context = makeContext(text);
-    const stream = streamLyceum(model, context, { apiKey, maxTokens: 256 });
-    let done = false;
-
-    const events = [];
-    (async () => {
-      let textOut = '';
-      try {
-        for await (const event of stream) {
-          events.push(event.type);
-          if (event.type === 'text_delta') textOut += event.delta;
-          if (event.type === 'error') {
-            console.log(`  [error] ${event.error?.errorMessage ?? 'unknown'}`);
-          }
-        }
-      } catch (e) {
-        console.log(`  [threw] ${e.message}`);
-      }
-      console.log(`  events: ${JSON.stringify(events)}`);
-      console.log(`  text: "${textOut.trim().slice(0, 120)}"`);
-      if (!done) { done = true; resolve(textOut); }
-    })();
+async function testModel(modelId, prompt) {
+  console.log(`\nTesting ${modelId}...`);
+  const start = Date.now();
+  const res = await fetch('https://api.lyceum.technology/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 128,
+    }),
   });
+
+  const elapsed = Date.now() - start;
+  if (!res.ok) {
+    console.error(`Failed (${res.status}):`, await res.text());
+    return;
+  }
+
+  const data = await res.json();
+  const msg = data.choices?.[0]?.message;
+  console.log(`  Status: OK (${elapsed}ms)`);
+  console.log(`  Reply: "${(msg?.content || '').trim().slice(0, 100)}"`);
 }
 
-console.log('=== Routing keyword: lyceum/router (expect /route POST -> fallback or resolved) ===');
-await run('lyceum/router', 'Write a short todo list about groceries.');
-
-console.log('=== Concrete model: deepseek/deepseek-v4-flash-0731 ===');
-await run('deepseek/deepseek-v4-flash-0731', 'Reply with "pong".');
+await testModel('deepseek/deepseek-v4-flash-0731', 'Reply with "pong".');
+await testModel('moonshotai/kimi-k2.7-code', 'Reply with "pong".');
 
 console.log('\nDone.');
